@@ -81,7 +81,7 @@ def parseCSVs(n, peopleFile, setFile):
             low_bound=int(line[2])
             up_bound=-1
             peopleList=line[3:]
-        setConstraints.append(PAS.SetConstraint(sid, setType, peopleList, low_bound, up_bound))
+        setConstraints.append(PAS.SetConstraint(sid, PAS.SetConstraintType(setType), peopleList, low_bound, up_bound))
         
     return (n, people, setConstraints)
 
@@ -102,4 +102,4 @@ if __name__ == "__main__":
     for person in people:
         print(person.uid, person.dateList)
     for setC in sets:
-        print(setC.sid, setC.type, setC.low_bound, setC.up_bound, setC.personList)
+        print(setC.sid, setC.constraintType, setC.low_bound, setC.up_bound, setC.personList)

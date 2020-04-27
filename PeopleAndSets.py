@@ -1,4 +1,5 @@
 #class definitions for office-scheduler
+from enum import Enum
 
 class SchedulerClassConstError(Exception):
     """
@@ -10,6 +11,14 @@ class SchedulerClassConstError(Exception):
     """
     def __init__(self, message):
         self.message=message
+
+
+class SetConstraintType(Enum):
+    """Enumerated constants for supported types of set constraints."""
+    UNINITIALIZED = 0
+    DEPARTMENT = 1
+    SYNERGY = 2
+
 
 class Person:
     """ 
@@ -28,8 +37,7 @@ class SetConstraint:
     """
         Fields
         sid: unique id to identify set. Can be name of dept, project, etc.
-        type: the constraint type represented as an integer. 0 if unitiliazed, 1 if a synergy
-              constraint, and 2 if a department type constraint
+        constraint_type: the constraint type represented as an integer. See SetConstraintType enum.
         low_bound: lower bound for the number of people from the set that should be in the office
                    on a given day if a department constraint. Mininum number of days that the entire set
                    should be in the office if a synergy constraint. Initialized to 0
@@ -40,12 +48,12 @@ class SetConstraint:
         
     """
     
-    def __init__(self, sid="", type=0, personList=[], low_bound=0, up_bound=-1):
+    def __init__(self, sid="", constraintType=SetConstraintType.UNINITIALIZED, personList=[], low_bound=0, up_bound=-1):
         self.sid = sid        
-        if type>=0 and type <= 2:
-            self.type = type
+        if isinstance(constraintType, SetConstraintType):
+            self.constraintType = constraintType
         else:
-            raise SchedulerPrecondError("SetConstraint types should be 0, 1, or 2.")
+            raise SchedulerPrecondError("Invalid set constraint type. See SetConstraintType class for valid types.")
         
         if low_bound>=0 and (low_bound <= up_bound or up_bound == -1):
             self.low_bound=low_bound
@@ -54,3 +62,4 @@ class SetConstraint:
             raise SchedulerPrecondError("lower_bound and upper_bound do not make sense. They are either too small, too large, or upper_bound<lower_bound")
         
         self.personList=personList
+
