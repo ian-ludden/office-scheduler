@@ -12,11 +12,12 @@ class SolverManager(object):
 	A SolverManager optimizes a given integer programming formulation of
 	a shift scheduling problem. 
 	
-	Fields
-	problem: A PuLP LpProblem
-	timeLimit: max time, in seconds, to run the algorithm; default is 60 seconds
-	optValue: optimal value found; initially 0 since our objective is nonnegative
-	optSolution: optimal variable assignments found; initially None
+	Fields:
+		problem - A PuLP LpProblem
+		timeLimit - max time, in seconds, to run the algorithm; default is 60 seconds
+		optValue - optimal value found; initially 0 since our objective is nonnegative
+		optSolution - optimal variable assignments found; initially None
+		status - status of LP solver ('Optimal', 'Not Solved', 'Infeasible', 'Unbounded', or 'Undefined')
 	"""
 	def __init__(self, problem, timeLimit=60):
 		super(SolverManager, self).__init__()
@@ -24,6 +25,7 @@ class SolverManager(object):
 		self.timeLimit = timeLimit
 		self.optValue = 0
 		self.optSolution = None
+		self.status = None
 
 		# Run PuLP solver as a separate process to enforce time limit
 		taskManager = Manager()
@@ -40,6 +42,8 @@ class SolverManager(object):
 			self.optValue = returnDict['optValue']
 		if 'optSolution' in returnDict.keys():
 			self.optSolution = returnDict['optSolution']
+		if 'status' in returnDict.keys():
+			self.status = returnDict['status']
 
 
 def solveIP(problem, returnDict):
@@ -66,22 +70,24 @@ def buildSchedulingLP(numDays, people, setConstraints):
 	"""
 	prob = pl.LpProblem('Office Scheduling Problem', pl.LpMaximize)
 
-	# Ranges for iterating through people, sets, and days
-	PEOPLE = range(1, len(people) + 1)
-	SETS = range(1, len(setConstraints) + 1) # TODO: consider deleting, may not need
-	DAYS = range(1, numDays + 1)
-
 	# Find indices of 'synergy' set constraints
 	synergyIndices = []
 	for index, setConstraint in enumerate(setConstraints):
 		if setConstraint.constraintType is PAS.SetConstraintType.SYNERGY:
-			pass # TODO: implement
+			synergyIndices.append(index)
+
+	# Ranges for iterating through people, all sets, synergy sets, and days
+	PEOPLE = range(1, len(people) + 1)
+	SETS = range(1, len(setConstraints) + 1) # TODO: consider deleting, may not need
+	SYNERGY_SETS = (1, len(synergyIndices) + 1)
+	DAYS = range(1, numDays + 1)
+
 
 	# Create decision variables x_{i,j} indicating whether person i is scheduled on day j
 	x = pl.LpVariable.dicts('Schedule', (PEOPLE, DAYS), cat='Binary')
 
 	# Create decision variables y_{k,j} indicating whether team k is all present on day j
-	# TODO
+	y = pl.LpVariable.dicts('AllTeam', (SYNERGY_SETS, DAYS), cat='Binary')
 
 	# Add objective: sum of all x_{i,j}
 	prob += 1 * pl.lpSum(x)
@@ -96,7 +102,7 @@ def buildSchedulingLP(numDays, people, setConstraints):
 			availability = int(people[i - 1].dateList[j - 1])
 			prob += x[i][j] <= availability, '{0} {1} work on day {2}.'.format(people[i - 1].uid, 'can' if availability == 1 else 'can\'t', j)
 
-	for setConstraint in setConstraints:
+	for index, setConstraint in enumerate(setConstraints):
 		# Convert setConstraint.personList to list of 1-based indices for LP variables
 		peopleIndices = []
 		for personUID in setConstraint.personList:
@@ -113,9 +119,13 @@ def buildSchedulingLP(numDays, people, setConstraints):
 
 		elif setConstraint.constraintType is PAS.SetConstraintType.SYNERGY:
 			# Add lower-bound constraint for number of days with full set present
-			# TODO: implement
-			pass
+			k = synergyIndices.index(index) + 1
+			prob += pl.lpSum(y[k][j] for j in DAYS) >= setConstraint.low_bound, 'Team {0} all present at least {1} days'.format(setConstraint.sid, setConstraint.low_bound)
 
+			# Add constraint to enforce all of set k showing up when y_{k,j} is 1
+			for j in DAYS:
+				prob += pl.lpSum(x[i][j] for i in peopleIndices) >= len(peopleIndices) * y[k][j], 'Team {0} all present on day {1} if assigned to be'.format(setConstraint.sid, j)
+		
 		else:
 			pass
 			# # Should never reach this case due to type validation in SetConstraint.__init__()
@@ -133,10 +143,14 @@ def optimizeSchedule(numDays, people, setConstraints, timeLimit):
 	schedProb = buildSchedulingLP(numDays, people, setConstraints)
 	varNames = [var.name for var in schedProb.variables()]
 
+	print(schedProb)
+
 	solverManager = SolverManager(problem=schedProb, timeLimit=timeLimit)
 
 	if solverManager.optSolution is None:
-		print('Time limit exceeded.')
+		print('Failed to solve. Status:', solverManager.status)
+		if solverManager.status == 'Undefined':
+			print('(Likely, time limit exceeded.)')
 		exit(0)
 
 	print('Best objective value: ', solverManager.optValue)
@@ -159,8 +173,8 @@ def optimizeSchedule(numDays, people, setConstraints, timeLimit):
 
 if __name__ == '__main__':
 	defaultNumDays = 10 # Two weeks of M-F
-	peopleFname = 'sample_employees.csv'
-	setsFname = 'sample_set_constraints.csv'
+	peopleFname = '../sample_employees.csv'
+	setsFname = '../sample_set_constraints.csv'
 
 	with open(peopleFname, 'r') as people_file:
 		with open(setsFname, 'r') as sets_file:
