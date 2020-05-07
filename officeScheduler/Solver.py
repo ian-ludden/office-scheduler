@@ -3,9 +3,9 @@ from multiprocessing import Process, Manager
 import pulp as pl
 import sys
 
-import PeopleAndSets as PAS
-import Parser
-from Schedule import Schedule
+import officeScheduler.PeopleAndSets as PAS
+import officeScheduler.Parser as Parser
+from officeScheduler.Schedule import Schedule
 
 class SolverManager(object):
 	"""
@@ -82,7 +82,7 @@ def buildSchedulingLP(numDays, people, setConstraints):
 	constructs a PuLP LpProblem representing the scheduling problem.
 	The objective is to maximize the number of person-days. 
 	"""
-	prob = pl.LpProblem('Office Scheduling Problem', pl.LpMaximize)
+	prob = pl.LpProblem('Office_Scheduling_Problem', pl.LpMaximize)
 
 	# Find indices of 'synergy' set constraints
 	synergyIndices = []

@@ -30,7 +30,7 @@ If you want Ellie and John to be in the office together for at
 paperProject,2,Ellie,John
 """
 
-import PeopleAndSets as PAS
+import officeScheduler.PeopleAndSets as PAS
 import argparse
 
 def parseCSVs(n, peopleFile, setFile):
