@@ -171,7 +171,7 @@ def optimizeSchedule(numDays, people, setConstraints, timeLimit):
 
 	optSchedule = Schedule(people=people)
 	optSchedule.buildFromSolutionVariables(solverManager.optSolution)
-	print(optSchedule)
+	return optSchedule
 
 
 if __name__ == '__main__':
@@ -185,7 +185,8 @@ if __name__ == '__main__':
 
 	try:
 		timeLimit = 10 # seconds
-		optimizeSchedule(numDays, people, setConstraints, timeLimit=timeLimit)
+		sched = optimizeSchedule(numDays, people, setConstraints, timeLimit=timeLimit)
+		print(sched)
 
 	except Exception as e:
 		print(sys.exc_info()[0], e.message)
