@@ -68,7 +68,7 @@ def buildSchedulingLP(numDays, people, setConstraints):
 	constructs a PuLP LpProblem representing the scheduling problem.
 	The objective is to maximize the number of person-days. 
 	"""
-	prob = pl.LpProblem('Office Scheduling Problem', pl.LpMaximize)
+	prob = pl.LpProblem('Office_Scheduling_Problem', pl.LpMaximize)
 
 	# Find indices of 'synergy' set constraints
 	synergyIndices = []
