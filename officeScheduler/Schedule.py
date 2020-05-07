@@ -1,7 +1,7 @@
 # Class definition for representation of a partial/full schedule of shifts
 import numpy as np
-import Parser
-import PeopleAndSets as PAS
+import officeScheduler.Parser as Parser
+import officeScheduler.PeopleAndSets as PAS
 
 class Schedule(object):
 	"""

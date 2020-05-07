@@ -3,8 +3,8 @@ from multiprocessing import Process, Manager
 import pulp as pl
 import sys
 
-import PeopleAndSets as PAS
-import Parser
+import officeScheduler.PeopleAndSets as PAS
+import officeScheduler.Parser as Parser
 
 
 class SolverManager(object):
