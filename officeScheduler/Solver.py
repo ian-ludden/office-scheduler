@@ -72,8 +72,8 @@ def solveIP(problem, returnDict):
 		for x_ij in problem.variables():
 			optSolutionDict[x_ij.name] = x_ij.value()
 		returnDict['optSolution'] = optSolutionDict
-	else:
-		returnDict['status'] = pl.LpStatus[result]
+	
+	returnDict['status'] = pl.LpStatus[result]
 
 
 def buildSchedulingLP(numDays, people, setConstraints):
@@ -184,7 +184,8 @@ if __name__ == '__main__':
 			numDays, people, setConstraints = Parser.parseCSVs(n=defaultNumDays, peopleFile=people_file, setFile=sets_file)
 
 	try:
-		optimizeSchedule(numDays, people, setConstraints, timeLimit=0.2)
+		timeLimit = 10 # seconds
+		optimizeSchedule(numDays, people, setConstraints, timeLimit=timeLimit)
+
 	except Exception as e:
 		print(sys.exc_info()[0], e.message)
-	
