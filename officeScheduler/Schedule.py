@@ -1,4 +1,5 @@
 # Class definition for representation of a partial/full schedule of shifts
+import io
 import numpy as np
 import Parser
 import PeopleAndSets as PAS
@@ -15,9 +16,13 @@ class Schedule(object):
 		assignments - a len(people) by n numpy array representing each person's shift assignments 
 		              (-1 if undecided, 0 if assigned off, 1 if assigned to work)
 	"""
-	def __init__(self, filepath=None):
+	def __init__(self, filepath=None, people=[]):
 		if filepath is not None:
 			self.buildFromCSV(filepath)
+
+		self.people = people
+		self.n = None
+		self.assignments = None
 
 
 	def buildFromCSV(self, filepath):
@@ -28,6 +33,7 @@ class Schedule(object):
 		# TODO: Implement
 		with open(filepath, 'r') as scheduleFile:
 			# Reusing Parser.parseCSVs(), but not in the intended way; ok because validation is not yet implemented
+			# TODO: Split Parser.parseCSVs() into separate people/set file parsers 
 			n, people, setConstraints = Parser.parseCSVs(-1, scheduleFile, [])
 		
 		if people:
@@ -36,16 +42,48 @@ class Schedule(object):
 			# Initialize all assignments to -1 for undecided
 			self.assignments = -1 * np.ones((len(people), self.n))
 			for i, person in enumerate(people):
-				for j in range(len(person.dateList)):
+				for j in range(self.n):
 					self.assignments[i, j] = int(person.dateList[j])
 
 
-	def buildFromPulpVariables(self, variables):
+	def buildFromSolutionVariables(self, variablesDict):
 		"""
-		Extracts a schedule from the variables of a PuLP linear program.
+		Extracts a schedule from a dictionary of problem variable names and their assigned values.
+		If self.people is None, then it is populated with Person objects 
+		with default names 'Person_1' to 'Person_n'. 
 		"""
-		# TODO: implement
-		pass
+		# First loop through variables to determine number of people and number of days
+		numPeople = 0
+		numDays = 0
+
+		for varName in variablesDict.keys():
+			if 'Schedule' in varName: # varName looks like 'Schedule_[personIndex]_[dayIndex]'
+				nameParts = varName.split('_')
+				personIndex = int(nameParts[1])
+				dayIndex = int(nameParts[2])
+				numPeople = max(numPeople, personIndex)
+				numDays = max(numDays, dayIndex)
+
+		# Now that we know how many people & days there are, 
+		# we can populate self.n and self.people with defaults
+		self.n = numDays
+
+		if not self.people:
+			for i in range(numPeople):
+				defaultName = 'Person_{0}'.format(i)
+				defaultDateList = [True] * self.n
+				self.people += PAS.Person(uid=defaultName, dateList=defaultDateList)
+
+		# Initialize self.assignments with correct dimensions
+		self.assignments = -1 * np.ones((len(self.people), self.n))
+
+		# Second loop through variables to store assignments
+		for varName in variablesDict.keys():
+			if 'Schedule' in varName: # varName looks like 'Schedule_[personIndex]_[dayIndex]'
+				nameParts = varName.split('_')
+				personIndex = int(nameParts[1])
+				dayIndex = int(nameParts[2])
+				self.assignments[personIndex - 1, dayIndex - 1] = int(variablesDict[varName])
 
 
 	def __str__(self):
@@ -65,6 +103,13 @@ class Schedule(object):
 		"""
 		with open(filepath, 'w') as outputFile:
 			outputFile.write(str(self))
+
+
+	def writeToStringIO(self, stringIOstream):
+		"""
+		Writes shift schedule to the given StringIO stream.
+		"""
+		stringIOstream.write(str(self))
 
 
 if __name__ == '__main__':

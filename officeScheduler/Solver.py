@@ -5,7 +5,7 @@ import sys
 
 import PeopleAndSets as PAS
 import Parser
-
+from Schedule import Schedule
 
 class SolverManager(object):
 	"""
@@ -16,7 +16,7 @@ class SolverManager(object):
 		problem - A PuLP LpProblem
 		timeLimit - max time, in seconds, to run the algorithm; default is 60 seconds
 		optValue - optimal value found; initially 0 since our objective is nonnegative
-		optSolution - optimal variable assignments found; initially None
+		optSolution - optimal variable assignments found (dictionary of names to values); initially None
 		status - status of LP solver ('Optimal', 'Not Solved', 'Infeasible', 'Unbounded', or 'Undefined')
 	"""
 	def __init__(self, problem, timeLimit=60):
@@ -46,6 +46,18 @@ class SolverManager(object):
 			self.status = returnDict['status']
 
 
+class SolverTimeoutError(Exception):
+	"""
+	Error raised when the solver exceeds the specified time limit.
+		
+	Fields:
+		message - explanation of the error
+	"""
+	def __init__(self, message='Time limit exceeded.'):
+		super(SolverTimeoutError, self).__init__()
+		self.message=message
+
+
 def solveIP(problem, returnDict):
 	"""
 	Runs PuLP with its default solver (CBC) to solve the given IP. 
@@ -56,8 +68,10 @@ def solveIP(problem, returnDict):
 	result = problem.solve()
 	if pl.LpStatus[result] == 'Optimal':
 		returnDict['optValue'] = pl.value(problem.objective)
-		returnDict['optSolution'] = [x_ij.value() for x_ij in problem.variables()]
-		return
+		optSolutionDict = {}
+		for x_ij in problem.variables():
+			optSolutionDict[x_ij.name] = x_ij.value()
+		returnDict['optSolution'] = optSolutionDict
 	else:
 		returnDict['status'] = pl.LpStatus[result]
 
@@ -143,32 +157,21 @@ def optimizeSchedule(numDays, people, setConstraints, timeLimit):
 	schedProb = buildSchedulingLP(numDays, people, setConstraints)
 	varNames = [var.name for var in schedProb.variables()]
 
-	print(schedProb)
+	# print(schedProb)
 
 	solverManager = SolverManager(problem=schedProb, timeLimit=timeLimit)
 
 	if solverManager.optSolution is None:
-		print('Failed to solve. Status:', solverManager.status)
-		if solverManager.status == 'Undefined':
-			print('(Likely, time limit exceeded.)')
-		exit(0)
+		print('Failed to find a schedule. Status:', solverManager.status)
+	if solverManager.status is None or solverManager.status == 'Undefined':
+		raise SolverTimeoutError()
 
-	print('Best objective value: ', solverManager.optValue)
+	print('Best objective value: ', int(solverManager.optValue))
 	print('The following schedule achieves {0:d} person-days:'.format(int(solverManager.optValue)))
-	
-	bestScheduleFound = solverManager.optSolution
 
-	# Print schedule; TODO: make this a function, perhaps for a "Schedule" class
-	for i, person in enumerate(people, start=1):
-		sys.stdout.write('{0},'.format(person.uid))
-		for j in range(1, numDays + 1):
-			lpVarName = 'Schedule_{0}_{1}'.format(i, j)
-			lpVarValue = bestScheduleFound[varNames.index(lpVarName)]
-			if lpVarValue is None:
-				import pdb; pdb.set_trace()
-			else:
-				sys.stdout.write('{0},'.format(int(lpVarValue)))
-		print()
+	optSchedule = Schedule(people=people)
+	optSchedule.buildFromSolutionVariables(solverManager.optSolution)
+	print(optSchedule)
 
 
 if __name__ == '__main__':
@@ -180,4 +183,8 @@ if __name__ == '__main__':
 		with open(setsFname, 'r') as sets_file:
 			numDays, people, setConstraints = Parser.parseCSVs(n=defaultNumDays, peopleFile=people_file, setFile=sets_file)
 
-	optimizeSchedule(numDays, people, setConstraints, timeLimit=5)
+	try:
+		optimizeSchedule(numDays, people, setConstraints, timeLimit=0.2)
+	except Exception as e:
+		print(sys.exc_info()[0], e.message)
+	
