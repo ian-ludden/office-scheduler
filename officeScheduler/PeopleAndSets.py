@@ -1,5 +1,5 @@
 #class definitions for office-scheduler
-from enum import Enum
+import enum
 
 class SchedulerClassConstError(Exception):
     """
@@ -13,7 +13,7 @@ class SchedulerClassConstError(Exception):
         self.message=message
 
 
-class SetConstraintType(Enum):
+class SetConstraintType(enum.Enum):
     """Enumerated constants for supported types of set constraints."""
     UNINITIALIZED = 0
     DEPARTMENT = 1
