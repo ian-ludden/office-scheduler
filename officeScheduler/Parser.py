@@ -1,5 +1,3 @@
-#test comment
-
 """
 File parser for office scheduler.
 Takes as an input a number n and 2 csv files people.csv and setConstraints.csv
