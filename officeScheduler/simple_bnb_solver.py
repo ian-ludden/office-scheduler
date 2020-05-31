@@ -10,7 +10,7 @@ import time
 import Parser
 from PeopleAndSets import SetConstraint, SetConstraintType
 import pulp_utils
-from solver import Solver, SolverStatus
+from Solver import Solver, SolverStatus
 
 
 class SimpleBnbSolver(Solver):
@@ -276,6 +276,10 @@ if __name__ == '__main__':
     num_days, people, set_constraints = Parser.parseCSVs(n=args.numdays, peopleFile=args.peopleFile, setFile=args.setFile)
     time_limit = 10
 
+    #TODO: Stop converting to list and and actually use dictionary
+    people = list(people.values())
+    set_constraints = list(set_constraints.values())
+    
     bnb_solver = SimpleBnbSolver(people, set_constraints, time_limit=time_limit)
     bnb_solver.solve()
 
