@@ -40,13 +40,19 @@ def parseCSVs(n, peopleFile, setFile):
         peopleFile - a file to read people lines from (not the name of the file, the actual file object)
         setFile - a file to read set constraints from (not the name of the file, the actual file object)
         
-     Returns tuple of form (n, {People objects indexed by uid}, {SetConstraint objects indexed by sid})
+     Returns tuple of form (n, [list of People objects], [list of SetConstraint objects]
     """
     
     #TODO: need to trim extra commas and stuff like that.
+    #TODO: consider people and setConstraints as dictionaries indexed by uid and sid for easier lookup
+    #   alternatively, add person object to set contraint instead of just person's id.
+    #   Can also only store people as a dictionary to facilitate this better.
+    #   On the other hand, lists make for easier time converting from lists to indexed IP variables
+    #   Maybe store as tuple (personIndex, personObject) in people list in SetConstraint or something.
+    #   Or can create a dictionary to map from person name to index in people.
     
     #parse peopleFile first
-    people = {}
+    people = []
     for line in peopleFile:
         line = line.strip()
         line = line.split(',')
@@ -55,12 +61,11 @@ def parseCSVs(n, peopleFile, setFile):
         dates = line[1:]
         dates = [True if c=='1' else False for c in dates]
         #TODO: should probably throw an exception if not 0 or 1.
-        #TODO: Also throw exception of uid is not unique
-        people[uid] = PAS.Person(uid, dates)
+        people.append(PAS.Person(uid, dates))
         
     
     #now parse setcontriants
-    setConstraints = {}
+    setConstraints = []
     for line in setFile:
         line = line.strip()
         line = line.split(',')
@@ -76,7 +81,7 @@ def parseCSVs(n, peopleFile, setFile):
             low_bound=int(line[2])
             up_bound=-1
             peopleList=line[3:]
-        setConstraints[sid] = (PAS.SetConstraint(sid, PAS.SetConstraintType(setType), peopleList, low_bound, up_bound))
+        setConstraints.append(PAS.SetConstraint(sid, PAS.SetConstraintType(setType), peopleList, low_bound, up_bound))
         
     return (n, people, setConstraints)
 
@@ -94,7 +99,7 @@ if __name__ == "__main__":
     n, people, sets = parseCSVs(args.numdays,args.peopleFile,args.setFile)
     print(n)
     
-    for person in people.values():
+    for person in people:
         print(person.uid, person.dateList)
-    for setC in sets.values():
+    for setC in sets:
         print(setC.sid, setC.constraintType, setC.low_bound, setC.up_bound, setC.personList)

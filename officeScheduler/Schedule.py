@@ -36,9 +36,6 @@ class Schedule(object):
 			# TODO: Split Parser.parseCSVs() into separate people/set file parsers 
 			n, people, setConstraints = Parser.parseCSVs(-1, scheduleFile, [])
 		
-		# TODO: stop convering people to list and actually use dictionary
-		people = list(people.values())
-		
 		if people:
 			self.n = len(people[0].dateList)
 			self.people = people
