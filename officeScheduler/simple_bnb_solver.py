@@ -66,11 +66,18 @@ class SimpleBnbSolver(Solver):
 
             node = stack.pop()
             count_explored_nodes += 1
+            
+            # print(node)
 
             children = node.branch()
             if node.feasible_value > self.best_value:
                 self.best_value = node.feasible_value
                 self.best_solution = node.feasible_solution
+
+            # Pruning: Don't need to add children if LP relaxation has 
+            # opt value no better than best feasible integer solution seen so far
+            if node.lp_value <= self.best_value or len(children) == 0:
+                continue
 
             for child in children:
                 stack.append(child) # Push children onto stack for DFS
@@ -79,6 +86,7 @@ class SimpleBnbSolver(Solver):
         # Print summary stats
         print('Explored {0:d} nodes.'.format(count_explored_nodes))
         print('Elapsed time: {0:.3f} s'.format(elapsed_time))
+        print('Best value: {0:d}'.format(int(self.best_value)))
 
         # Update solver status
         if elapsed_time > time_limit:
@@ -108,14 +116,17 @@ class BnbNode(object):
         if parent is None:
             self.decisions = []
             self.lp = None
+            self.depth = 0
         else:
             self.decisions = parent.decisions.copy()
             self.decisions.append(new_decision)
             
             self.lp = parent.lp.copy()
             self.lp = new_decision.add_constraint_to_problem(self.lp)
+            self.depth = parent.depth + 1
 
         self.feasible_value = 0
+        self.lp_value = 0
         self.branching_options = branching_options.copy()
 
 
@@ -134,8 +145,10 @@ class BnbNode(object):
             raise Exception('Solver fails with status \'Undefined\' for LP of node {0}.'.format(self))
 
         # Otherwise, status == 'Optimal', so we can check for a feasible integer solution and branch
+        self.lp_value = pl.value(self.lp.objective)
+
         if pulp_utils.is_integral(self.lp):
-            self.feasible_value = pl.value(self.lp.objective)
+            self.feasible_value = self.lp_value
             self.feasible_solution = pulp_utils.extract_solution(self.lp)
 
         children = []
@@ -144,6 +157,8 @@ class BnbNode(object):
         new_branching_options = self.branching_options.copy()
         new_branching_options.remove(branching_option)
 
+        # print('Node {0} branching on {1}'.format(self, branching_option))
+
         if branching_option.decision_type.value in [DecisionType.PERSON_DAY.value, DecisionType.SYNERGY_DAY.value]:
             for direction in [0, 1]:
                 children.append(BnbNode(self, new_branching_options, BranchingDecision(branching_option, direction)))
@@ -151,6 +166,7 @@ class BnbNode(object):
         elif branching_option.decision_type.value == DecisionType.DEPT_DAY.value:
             difference = branching_option.upper_bound - branching_option.lower_bound
             if difference <= 0:
+                # print('dept day constraint with same LB/UB')
                 return children # Department attendance is actually fixed for the given day
             
             threshold = branching_option.lower_bound + (difference // 2)
@@ -165,11 +181,16 @@ class BnbNode(object):
             branching_option_upper_half = BranchingOption(DecisionType.DEPT_DAY, branching_option.entity_id, branching_option.day, threshold + 1, branching_option.upper_bound)
             child_1 = BnbNode(self, new_branching_options, BranchingDecision(branching_option, 1, threshold))
             child_1.branching_options.append(branching_option_upper_half)
+            children.append(child_1)
 
         else:
             raise Exception('Unrecognized or unimplemented decision type: {0}'.format(branching_option.decision_type))
 
         return children
+
+
+    def __str__(self):
+        return 'Depth: {0:02d}'.format(self.depth)#\n\tDecisions: {1}'.format(self.depth, self.decisions)
 
 
 class BranchingOption(object):
@@ -192,6 +213,10 @@ class BranchingOption(object):
         self.day = day
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
+
+
+    def __str__(self):
+        return '{0}: id={1}, day={2}'.format(self.decision_type, self.entity_id, self.day)
 
 
 class BranchingDecision(object):
