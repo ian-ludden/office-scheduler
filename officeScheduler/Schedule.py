@@ -1,6 +1,8 @@
 # Class definition for representation of a partial/full schedule of shifts
 import io
 import numpy as np
+import pulp as pl
+
 import officeScheduler.Parser as Parser
 import officeScheduler.PeopleAndSets as PAS
 
@@ -52,41 +54,53 @@ class Schedule(object):
 	def buildFromSolutionVariables(self, variablesDict):
 		"""
 		Extracts a schedule from a dictionary of problem variable names and their assigned values.
-		If self.people is None, then it is populated with Person objects 
+		If self.people is empty, then it is populated with Person objects 
 		with default names 'Person_1' to 'Person_n'. 
 		"""
 		# First loop through variables to determine number of people and number of days
-		numPeople = 0
-		numDays = 0
+		num_days = 0
+		person_uids = []
+
+		if variablesDict is None:
+			self.assignments = -1 * np.ones((max(len(self.people), 10), 10))
+			return
 
 		for varName in variablesDict.keys():
-			if 'Schedule' in varName: # varName looks like 'Schedule_[personIndex]_[dayIndex]'
-				nameParts = varName.split('_')
-				personIndex = int(nameParts[1])
-				dayIndex = int(nameParts[2])
-				numPeople = max(numPeople, personIndex)
-				numDays = max(numDays, dayIndex)
+			if 'Schedule' in varName: # varName looks like 'Schedule_[person_uid]_[day_index]'
+				name_parts = varName.split('_')
+				person_uid = name_parts[1]
+				if person_uid not in person_uids:
+					person_uids.append(person_uid)
+				day_index = int(name_parts[2])
+				num_days = max(num_days, day_index)
+
+		num_people = len(person_uids)
 
 		# Now that we know how many people & days there are, 
 		# we can populate self.n and self.people with defaults
-		self.n = numDays
+		self.n = num_days
 
 		if not self.people:
-			for i in range(numPeople):
+			for i in range(num_people):
 				defaultName = 'Person_{0}'.format(i)
 				defaultDateList = [True] * self.n
 				self.people += PAS.Person(uid=defaultName, dateList=defaultDateList)
+		else: 
+			# Update person_uids with uids from self.people in the correct order
+			person_uids = []
+			for person in self.people:
+				person_uids.append(person.uid)
 
 		# Initialize self.assignments with correct dimensions
 		self.assignments = -1 * np.ones((len(self.people), self.n))
 
 		# Second loop through variables to store assignments
 		for varName in variablesDict.keys():
-			if 'Schedule' in varName: # varName looks like 'Schedule_[personIndex]_[dayIndex]'
-				nameParts = varName.split('_')
-				personIndex = int(nameParts[1])
-				dayIndex = int(nameParts[2])
-				self.assignments[personIndex - 1, dayIndex - 1] = int(variablesDict[varName])
+			if 'Schedule' in varName: # varName looks like 'Schedule_[person_uid]_[day_index]'
+				name_parts = varName.split('_')
+				person_uid = name_parts[1]
+				day_index = int(name_parts[2])
+				self.assignments[person_uids.index(person_uid), day_index - 1] = int(variablesDict[varName])
 
 
 	def __str__(self):
