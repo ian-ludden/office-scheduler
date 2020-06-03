@@ -33,22 +33,23 @@ class Schedule(object):
 		at the given filepath. 
 		"""
 		# TODO: Implement
-		with open(filepath, 'r') as scheduleFile:
-			# Reusing Parser.parseCSVs(), but not in the intended way; ok because validation is not yet implemented
-			# TODO: Split Parser.parseCSVs() into separate people/set file parsers 
-			n, people, setConstraints = Parser.parseCSVs(-1, scheduleFile, [])
+		raise NotImplementedError('This function has not yet been implemented.')
+		# with open(filepath, 'r') as scheduleFile:
+		# 	# Reusing Parser.parseCSVs(), but not in the intended way; ok because validation is not yet implemented
+		# 	# TODO: Split Parser.parseCSVs() into separate people/set file parsers 
+		# 	n, people, setConstraints = Parser.parseCSVs(-1, scheduleFile, [])
 		
-		# TODO: stop convering people to list and actually use dictionary
-		people = list(people.values())
+		# # TODO: stop convering people to list and actually use dictionary
+		# people = list(people.values())
 		
-		if people:
-			self.n = len(people[0].dateList)
-			self.people = people
-			# Initialize all assignments to -1 for undecided
-			self.assignments = -1 * np.ones((len(people), self.n))
-			for i, person in enumerate(people):
-				for j in range(self.n):
-					self.assignments[i, j] = int(person.dateList[j])
+		# if people:
+		# 	self.n = len(people[0].dateList)
+		# 	self.people = people
+		# 	# Initialize all assignments to -1 for undecided
+		# 	self.assignments = -1 * np.ones((len(people), self.n))
+		# 	for i, person in enumerate(people):
+		# 		for j in range(self.n):
+		# 			self.assignments[i, j] = int(person.dateList[j])
 
 
 	def buildFromSolutionVariables(self, variablesDict):
@@ -135,3 +136,6 @@ if __name__ == '__main__':
 	print(schedule)
 
 	schedule.writeToCSV('../sample_schedule_copy.csv')
+
+	schedule2 = Schedule()
+	schedule2.buildFromCSV('../sample_schedule_copy.csv')
