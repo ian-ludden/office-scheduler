@@ -23,4 +23,5 @@ class SolverStatus(enum.Enum):
     FEASIBLE = 2 # Found a feasible solution but didn't have time to certify optimality
     INFEASIBLE = -1 # Problem is infeasible (certified)
     OUT_OF_TIME = -2 # Ran out of time before finding a feasible solution or determining infeasible/unbounded
+    UNBOUNDED = 3 # Problem objective can be arbitrarily large (if maximizing; arbitrarily small, if minimizing)
 
