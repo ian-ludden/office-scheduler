@@ -1,7 +1,7 @@
 # Utilities for solving office scheduling problem with Google OR-Tools package
 import argparse
 from ortools.linear_solver import pywraplp
-
+import numpy as np
 import time
 
 from PeopleAndSets import SetConstraintType
@@ -14,7 +14,7 @@ ORTOOLS_SOLVER_STATUS_TO_OURS_MAP = {0: SolverStatus.OPTIMAL,
                                      1: SolverStatus.FEASIBLE,
                                      2: SolverStatus.INFEASIBLE,
                                      3: SolverStatus.UNBOUNDED,
-                                     6: SolverStatus.UNSOLVED}
+                                     6: SolverStatus.NOT_SOLVED}
 
 def build_scheduling_lp(num_days, people, set_constraints):
     """
@@ -39,14 +39,14 @@ def build_scheduling_lp(num_days, people, set_constraints):
     variables = {}
     for person in people:
         for day in days:
-            var_name = 'Schedule_{0}_{1}'.format(person.uid, day)
+            var_name = '{2}_{0}_{1}'.format(person.uid, day, SCHEDULE_VAR_PREFIX)
             person_day_var = solver.NumVar(0, 1, var_name) # Change to IntVar to enforce integer
             variables[var_name] = person_day_var
 
     # Create relaxed decision variables Synergy_k_j indicating whether team k is all present on day j
     for sid in synergy_sets:
         for day in days:
-            var_name = 'Synergy_{0}_{1}'.format(sid, day)
+            var_name = '{2}_{0}_{1}'.format(sid, day, SYNERGY_VAR_PREFIX)
             synergy_day_var = solver.NumVar(0, 1, var_name) # Change to IntVar to enforce integer
             variables[var_name] = synergy_day_var
 
@@ -54,7 +54,7 @@ def build_scheduling_lp(num_days, people, set_constraints):
     objective = solver.Objective()
     for person in people:
         for day in days:
-            var_name = 'Schedule_{0}_{1}'.format(person.uid, day)
+            var_name = '{2}_{0}_{1}'.format(person.uid, day, SCHEDULE_VAR_PREFIX)
             objective.SetCoefficient(variables[var_name], 1)
     objective.SetMaximization()
 
@@ -67,7 +67,7 @@ def build_scheduling_lp(num_days, people, set_constraints):
             if availability == 0:
                 constraint_name = '{0}_can\'t_work_on_day_{1}.'.format(person.uid, day)
                 constraint = solver.Constraint(0, 0, constraint_name)
-                var_name = 'Schedule_{0}_{1}'.format(person.uid, day)
+                var_name = '{2}_{0}_{1}'.format(person.uid, day, SCHEDULE_VAR_PREFIX)
                 person_day_var = variables[var_name]
                 constraint.SetCoefficient(person_day_var, 1)
                 constraints[constraint_name] = constraint
@@ -95,7 +95,7 @@ def build_scheduling_lp(num_days, people, set_constraints):
             constraints[constraint_name] = constraint
             
             for day in days:
-                var_name = 'Synergy_{0}_{1}'.format(set_constraint.sid, day)
+                var_name = '{2}_{0}_{1}'.format(set_constraint.sid, day, SYNERGY_VAR_PREFIX)
                 synergy_day_var = variables[var_name]
                 constraint.SetCoefficient(synergy_day_var, 1)
 
@@ -106,11 +106,11 @@ def build_scheduling_lp(num_days, people, set_constraints):
                 constraints[constraint_name] = constraint
     
                 for person_uid in set_constraint.personList:
-                    var_name = 'Schedule_{0}_{1}'.format(person_uid, day)
+                    var_name = '{2}_{0}_{1}'.format(person_uid, day, SCHEDULE_VAR_PREFIX)
                     person_day_var = variables[var_name]
                     constraint.SetCoefficient(person_day_var, 1)
 
-                synergy_var_name = 'Synergy_{0}_{1}'.format(set_constraint.sid, day)
+                synergy_var_name = '{2}_{0}_{1}'.format(set_constraint.sid, day, SYNERGY_VAR_PREFIX)
                 synergy_day_var = variables[synergy_var_name]
                 constraint.SetCoefficient(synergy_day_var, -1 * num_people)
         
@@ -121,7 +121,6 @@ def build_scheduling_lp(num_days, people, set_constraints):
             # # Wait... Could reach this case if up_bound is -1 for a DEPARTMENT-type constraint
             # print('Ignoring unsupported set constraint: sid = {0}, type = {1}.'.format(set_constraint.sid, set_constraint.constraintType))
 
-    print(solver)
     return solver, variables, constraints
 
 
@@ -145,35 +144,16 @@ def is_integral(solver):
     return True
 
 
-def round_solution(solver):
+def extract_solution(solver):
     """
-    Rounds all variables' solution values to the nearest integer, then
-    checks feasibility. 
-    Returns True if the rounded solution is feasible; False otherwise. 
-    """
-    feasible = True
-    for var in solver.variables():
-        pass # Seems like we can't round and check feasibility...
-
-    return feasible
-
-
-def extract_solution(problem):
-    """
-    Extracts the solution to the given problem, 
-    if it has been solved, 
+    Extracts the solution to the given LP solver, 
     returning a dictionary of variable names to values. 
-    Returns None if the problem is not solved. 
     """
-    raise NotImplementedError('Not yet implemented.')
-    # if pl.LpStatus[problem.status] == 'Not Solved':
-    #     return None
+    solution = {}
+    for var in solver.variables():
+        solution[var.name()] = var.solution_value()
 
-    # solution = {}
-    # for var in problem.variables():
-    #     solution[var.name] = var.value()
-
-    # return solution
+    return solution
 
 
 if __name__ == '__main__':
@@ -198,7 +178,22 @@ if __name__ == '__main__':
     # for constraint_name in constraints.keys():
     #     print('\t{0}'.format(constraint_name))
 
-    status = solve_lp(solver)
+
+    RUN_TIME_EXPERIMENTS = True
+    if RUN_TIME_EXPERIMENTS:
+        num_runs = 100
+        runtimes = np.zeros((num_runs,))
+        for i in range(num_runs):
+            start_time = time.time()
+            solver, variables, constraints = build_scheduling_lp(num_days, people, set_constraints)
+            status = solve_lp(solver)
+            runtimes[i] = time.time() - start_time
+
+        print('Completed {0} runs.'.format(num_runs))
+        print('Average execution time: {0:.4f} s'.format(np.mean(runtimes)))
+        print('Std. dev.: {0:.4f} s'.format(np.std(runtimes, ddof=1)))
+
+    status = solver.Solve()
     our_status = ORTOOLS_SOLVER_STATUS_TO_OURS_MAP[status]
     print('Status:', our_status)
 
@@ -209,6 +204,11 @@ if __name__ == '__main__':
     #     var = variables[var_name]
     #     print('\t{0} = {1}'.format(var_name, var.solution_value()))
 
-    print('Solution is {0}integral.'.format('' if is_integral(solver) else 'not '))
+    # print('Solution is {0}integral.'.format('' if is_integral(solver) else 'not '))
 
-    print('Verify solution:', solver.VerifySolution(tolerance=1e-5, log_errors=True))
+    if our_status == SolverStatus.OPTIMAL:
+        print('Verify solution:', solver.VerifySolution(tolerance=1e-5, log_errors=True))
+    elif our_status == SolverStatus.INFEASIBLE:
+        print('Infeasible, so will not try to verify solution.')
+    else:
+        pass

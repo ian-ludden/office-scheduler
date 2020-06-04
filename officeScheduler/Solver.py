@@ -7,7 +7,7 @@ class Solver(ABC):
         self.people = people
         self.set_constraints = set_constraints
         self.time_limit = time_limit
-        self.status = SolverStatus.UNSOLVED
+        self.status = SolverStatus.NOT_SOLVED
         self.solution = None
 
 
@@ -18,7 +18,7 @@ class Solver(ABC):
 
 class SolverStatus(enum.Enum):
     """Enumerated constants for solver status."""
-    UNSOLVED = 0 # Have not tried to solve
+    NOT_SOLVED = 0 # Have not tried to solve
     OPTIMAL = 1 # Solved to optimality (certified)
     FEASIBLE = 2 # Found a feasible solution but didn't have time to certify optimality
     INFEASIBLE = -1 # Problem is infeasible (certified)
