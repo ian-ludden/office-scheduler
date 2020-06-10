@@ -29,7 +29,9 @@ class DirectILPSolver(Solver):
             print('No. constraints:', solver.NumConstraints())
 
         if self.time_limit > 0:
-            solver.SetTimeLimit(time_limit)
+            time_limit_ms = int(self.time_limit * 1000)
+            solver.SetTimeLimit(time_limit_ms) # Must pass in an int64
+            pass
         
         status = solver.Solve()
         self.status = ORTOOLS_SOLVER_STATUS_TO_OURS_MAP[status]
@@ -43,7 +45,7 @@ class DirectILPSolver(Solver):
         best_schedule.buildFromSolutionVariables(solution_dict)
 
         if DEBUG_PRINT:
-        	print('Schedule:\n{0}'.format(best_schedule))
+            print('Schedule:\n{0}'.format(best_schedule))
 
         return best_schedule
 
@@ -59,14 +61,13 @@ if __name__ == '__main__':
     num_days, people, set_constraints = Parser.parseCSVs(n=args.numdays, peopleFile=args.peopleFile, setFile=args.setFile)
     time_limit = 5 # seconds
 
-    #TODO: currently converting dictionary to list; should evetually change to actually use the dictionary
+    #TODO: currently converting dictionary to list; should eventually change to actually use the dictionary
     people=list(people.values())
     set_constraints=list(set_constraints.values())
 
     solver = DirectILPSolver(people, set_constraints, time_limit)
 
     schedule = solver.solve()
-
 
     RUN_TIME_EXPERIMENTS = False
     if RUN_TIME_EXPERIMENTS:
