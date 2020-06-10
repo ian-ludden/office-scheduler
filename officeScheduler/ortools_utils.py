@@ -16,15 +16,15 @@ ORTOOLS_SOLVER_STATUS_TO_OURS_MAP = {0: SolverStatus.OPTIMAL,
                                      3: SolverStatus.UNBOUNDED,
                                      6: SolverStatus.NOT_SOLVED}
 
-def build_scheduling_lp(num_days, people, set_constraints):
+def build_scheduling_ilp(num_days, people, set_constraints):
     """
     Given outputs of Parser.parseCSVs(), 
     constructs a Google OR-Tools Solver representing the scheduling problem.
     The objective is to maximize the number of person-days. 
     """
     solver = pywraplp.Solver('office_scheduling_problem', 
-                             pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
-                             # pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING) # Can use CBC to solve MIPs
+                             # pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
+                             pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING) # Can use CBC to solve MIPs
 
     # Find indices of 'synergy' set constraints
     synergy_indices = []
@@ -40,14 +40,14 @@ def build_scheduling_lp(num_days, people, set_constraints):
     for person in people:
         for day in days:
             var_name = '{2}_{0}_{1}'.format(person.uid, day, SCHEDULE_VAR_PREFIX)
-            person_day_var = solver.NumVar(0, 1, var_name) # Change to IntVar to enforce integer
+            person_day_var = solver.IntVar(0, 1, var_name) # Change to IntVar to enforce integer
             variables[var_name] = person_day_var
 
     # Create relaxed decision variables Synergy_k_j indicating whether team k is all present on day j
     for sid in synergy_sets:
         for day in days:
             var_name = '{2}_{0}_{1}'.format(sid, day, SYNERGY_VAR_PREFIX)
-            synergy_day_var = solver.NumVar(0, 1, var_name) # Change to IntVar to enforce integer
+            synergy_day_var = solver.IntVar(0, 1, var_name) # Change to IntVar to enforce integer
             variables[var_name] = synergy_day_var
 
     # Add objective: sum of all Schedule_i_j variables
@@ -124,9 +124,9 @@ def build_scheduling_lp(num_days, people, set_constraints):
     return solver, variables, constraints
 
 
-def solve_lp(solver):
+def solve_ilp(solver):
     """
-    Calls the given LP solver and returns the Google OR-Tools solver status code. 
+    Calls the given ILP solver and returns the Google OR-Tools solver status code. 
     """
     status = solver.Solve()
     return status
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     people=list(people.values())
     set_constraints=list(set_constraints.values())
 
-    solver, variables, constraints = build_scheduling_lp(num_days, people, set_constraints)
+    solver, variables, constraints = build_scheduling_ilp(num_days, people, set_constraints)
 
     print('No. variables:', solver.NumVariables())
     print('No. constraints:', solver.NumConstraints())
@@ -185,8 +185,8 @@ if __name__ == '__main__':
         runtimes = np.zeros((num_runs,))
         for i in range(num_runs):
             start_time = time.time()
-            solver, variables, constraints = build_scheduling_lp(num_days, people, set_constraints)
-            status = solve_lp(solver)
+            solver, variables, constraints = build_scheduling_ilp(num_days, people, set_constraints)
+            status = solve_ilp(solver)
             runtimes[i] = time.time() - start_time
 
         print('Completed {0} runs.'.format(num_runs))
