@@ -4,9 +4,9 @@ from ortools.linear_solver import pywraplp
 import numpy as np
 import time
 
-from PeopleAndSets import SetConstraintType
-import Parser
-from Solver import SolverStatus
+from officeScheduler.PeopleAndSets import SetConstraintType
+import officeScheduler.Parser
+from officeScheduler.Solver import SolverStatus
 
 SCHEDULE_VAR_PREFIX = 'Schedule'
 SYNERGY_VAR_PREFIX = 'Synergy'

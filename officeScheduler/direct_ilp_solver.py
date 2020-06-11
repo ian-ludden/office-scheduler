@@ -2,11 +2,11 @@ import argparse
 import numpy as np
 import time
 
-from ortools_utils import (build_scheduling_ilp, solve_ilp, 
+from officeScheduler.ortools_utils import (build_scheduling_ilp, solve_ilp, 
     extract_solution, ORTOOLS_SOLVER_STATUS_TO_OURS_MAP)
-import Parser
-from Solver import Solver, SolverStatus
-from Schedule import Schedule
+import officeScheduler.Parser
+from officeScheduler.Solver import Solver, SolverStatus
+from officeScheduler.Schedule import Schedule
 
 
 DEBUG_PRINT = True
