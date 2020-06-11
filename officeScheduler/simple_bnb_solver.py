@@ -3,6 +3,7 @@ from collections import deque
 import enum
 import math
 import numpy as np
+from pprint import pprint
 import pulp as pl
 import random
 import time
@@ -10,7 +11,8 @@ import time
 import Parser
 from PeopleAndSets import SetConstraint, SetConstraintType
 import pulp_utils
-from solver import Solver, SolverStatus
+from Solver import Solver, SolverStatus
+from Schedule import Schedule
 
 
 class SimpleBnbSolver(Solver):
@@ -21,11 +23,12 @@ class SimpleBnbSolver(Solver):
         self.best_value = 0
         self.best_solution = None
         self.nodes = []
+        self.status = SolverStatus.UNSOLVED
 
 
     def solve(self):
         start_time = time.time()
-        elapsed_time = 0
+        total_lp_solve_time = 0
 
         # Create branching options for root
         branching_options = []
@@ -67,10 +70,21 @@ class SimpleBnbSolver(Solver):
             node = stack.pop()
             count_explored_nodes += 1
 
-            children = node.branch()
+            # print(node)
+
+            children, lp_solve_time = node.branch()
+            total_lp_solve_time += lp_solve_time
+
+            # print('Node at depth {0}:\n\tLP value: {1:.2f}'.format(node.depth, node.lp_value))
+
             if node.feasible_value > self.best_value:
                 self.best_value = node.feasible_value
                 self.best_solution = node.feasible_solution
+
+            # Pruning: Don't need to add children if LP relaxation has 
+            # opt value no better than best feasible integer solution seen so far
+            if node.lp_value <= self.best_value or len(children) == 0:
+                continue
 
             for child in children:
                 stack.append(child) # Push children onto stack for DFS
@@ -79,9 +93,11 @@ class SimpleBnbSolver(Solver):
         # Print summary stats
         print('Explored {0:d} nodes.'.format(count_explored_nodes))
         print('Elapsed time: {0:.3f} s'.format(elapsed_time))
+        print('Total LP solve time: {0:.3f} s'.format(total_lp_solve_time))
+        print('Best value: {0:d}'.format(int(self.best_value)))
 
         # Update solver status
-        if elapsed_time > time_limit:
+        if elapsed_time > time_limit and time_limit > 0:
             if self.best_value <= 0:
                 self.status = SolverStatus.OUT_OF_TIME
             else:
@@ -91,6 +107,12 @@ class SimpleBnbSolver(Solver):
                 self.status = SolverStatus.INFEASIBLE
             else:
                 self.status = SolverStatus.OPTIMAL
+
+        # Build and return best Schedule
+        best_schedule = Schedule(people=self.people)
+        best_schedule.buildFromSolutionVariables(self.best_solution)
+
+        return best_schedule
 
 
 class BnbNode(object):
@@ -108,14 +130,17 @@ class BnbNode(object):
         if parent is None:
             self.decisions = []
             self.lp = None
+            self.depth = 0
         else:
             self.decisions = parent.decisions.copy()
             self.decisions.append(new_decision)
             
             self.lp = parent.lp.copy()
             self.lp = new_decision.add_constraint_to_problem(self.lp)
+            self.depth = parent.depth + 1
 
         self.feasible_value = 0
+        self.lp_value = 0
         self.branching_options = branching_options.copy()
 
 
@@ -126,23 +151,50 @@ class BnbNode(object):
 
         Returns an empty list if the current subproblem has an infeasible LP.
         """
+        lp_solve_time = time.time()
         status = pulp_utils.solve_lp(self.lp)
+        lp_solve_time = time.time() - lp_solve_time
         if status in ['Infeasible', 'Unbounded', 'Not Solved']:
-            return []
+            return [], lp_solve_time
 
         if status == 'Undefined':
             raise Exception('Solver fails with status \'Undefined\' for LP of node {0}.'.format(self))
 
         # Otherwise, status == 'Optimal', so we can check for a feasible integer solution and branch
+        self.lp_value = pl.value(self.lp.objective)
+
         if pulp_utils.is_integral(self.lp):
-            self.feasible_value = pl.value(self.lp.objective)
+            self.feasible_value = self.lp_value
             self.feasible_solution = pulp_utils.extract_solution(self.lp)
+        else:
+            # Try rounding LP solution in hopes of feasible integer solution
+            for var in self.lp.variables():
+                var.varValue = 0 if var.varValue <= 0.5 else 1
+
+            feasible = True
+            for constraint_name in self.lp.constraints:
+                constraint = self.lp.constraints[constraint_name]
+                value = pl.value(constraint)
+
+                violated = ((value > 0 and constraint.sense == pl.LpConstraintLE) or 
+                            (value < 0 and constraint.sense == pl.LpConstraintGE))
+                if violated:
+                    # print('Violated constraint:\n\t{0}'.format(constraint))
+                    feasible = False
+                    break
+
+            if feasible:
+                self.lp_value = pl.value(self.lp.objective)
+                self.feasible_value = self.lp_value
+                self.feasible_solution = pulp_utils.extract_solution(self.lp)
 
         children = []
 
         branching_option = random.choice(self.branching_options)
         new_branching_options = self.branching_options.copy()
         new_branching_options.remove(branching_option)
+
+        # print('Node {0} branching on {1}'.format(self, branching_option))
 
         if branching_option.decision_type.value in [DecisionType.PERSON_DAY.value, DecisionType.SYNERGY_DAY.value]:
             for direction in [0, 1]:
@@ -151,7 +203,8 @@ class BnbNode(object):
         elif branching_option.decision_type.value == DecisionType.DEPT_DAY.value:
             difference = branching_option.upper_bound - branching_option.lower_bound
             if difference <= 0:
-                return children # Department attendance is actually fixed for the given day
+                # print('dept day constraint with same LB/UB')
+                return children, lp_solve_time # Department attendance is actually fixed for the given day
             
             threshold = branching_option.lower_bound + (difference // 2)
             
@@ -165,11 +218,16 @@ class BnbNode(object):
             branching_option_upper_half = BranchingOption(DecisionType.DEPT_DAY, branching_option.entity_id, branching_option.day, threshold + 1, branching_option.upper_bound)
             child_1 = BnbNode(self, new_branching_options, BranchingDecision(branching_option, 1, threshold))
             child_1.branching_options.append(branching_option_upper_half)
+            children.append(child_1)
 
         else:
             raise Exception('Unrecognized or unimplemented decision type: {0}'.format(branching_option.decision_type))
 
-        return children
+        return children, lp_solve_time
+
+
+    def __str__(self):
+        return 'Depth: {0:02d}'.format(self.depth)#\n\tDecisions: {1}'.format(self.depth, self.decisions)
 
 
 class BranchingOption(object):
@@ -192,6 +250,10 @@ class BranchingOption(object):
         self.day = day
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
+
+
+    def __str__(self):
+        return '{0}: id={1}, day={2}'.format(self.decision_type, self.entity_id, self.day)
 
 
 class BranchingDecision(object):
@@ -274,9 +336,13 @@ if __name__ == '__main__':
     args = commandLineParser.parse_args()
 
     num_days, people, set_constraints = Parser.parseCSVs(n=args.numdays, peopleFile=args.peopleFile, setFile=args.setFile)
-    time_limit = 10
+    time_limit = 30
 
     bnb_solver = SimpleBnbSolver(people, set_constraints, time_limit=time_limit)
-    bnb_solver.solve()
+    schedule = bnb_solver.solve()
 
     print('Status:', bnb_solver.status)
+
+    # import pdb; pdb.set_trace()
+
+    print('Schedule:', schedule)

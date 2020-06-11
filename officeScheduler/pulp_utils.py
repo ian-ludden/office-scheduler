@@ -1,6 +1,5 @@
 # Utilities for solving office scheduling problem with PuLP package
 import argparse
-import enum
 import pulp as pl
 
 import time
@@ -45,7 +44,8 @@ def build_scheduling_lp(num_days, people, set_constraints):
     for person in people:
         for j in DAYS:
             availability = int(person.dateList[j - 1])
-            prob += x[person.uid][j] <= availability, '{0} {1} work on day {2}.'.format(person.uid, 'can' if availability == 1 else 'can\'t', j)
+            if availability == 0:
+                prob += x[person.uid][j] <= availability, '{0} can\'t work on day {1}.'.format(person.uid, j)
 
     for index, set_constraint in enumerate(set_constraints):
         if set_constraint.constraintType.value == SetConstraintType.DEPARTMENT.value:
