@@ -1,3 +1,3 @@
-Sarah,1,0,1,0,1,1,0,1,0,1
-John,1,1,1,1,1,1,1,1,1,1
-Ellie,0,1,1,0,1,0,1,1,0,1
+Sarah,1,0,1,0,1,1,0,1,0,1,sales,marketing
+John,1,1,1,1,1,1,1,1,1,1,sales,salesManagers,marketing
+Ellie,0,1,1,0,1,0,1,1,0,1,sales,salesManagers

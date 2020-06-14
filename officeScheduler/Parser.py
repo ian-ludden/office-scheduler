@@ -45,21 +45,6 @@ def parseCSVs(n, peopleFile, setFile):
     
     #TODO: need to trim extra commas and stuff like that.
     
-    #parse peopleFile first
-    people = {}
-    for line in peopleFile:
-        line = line.strip()
-        line = line.split(',')
-        #TODO: check that line is correct length, throw exception otherwise
-        uid=line[0]
-        dates = line[1:]
-        dates = [True if c=='1' else False for c in dates]
-        #TODO: should probably throw an exception if not 0 or 1.
-        #TODO: Also throw exception of uid is not unique
-        people[uid] = PAS.Person(uid, dates)
-        
-    
-    #now parse setcontriants
     setConstraints = {}
     for line in setFile:
         line = line.strip()
@@ -70,13 +55,25 @@ def parseCSVs(n, peopleFile, setFile):
         if setType==1:
             low_bound = int(line[2])
             up_bound=int(line[3])
-            peopleList=line[4:]
         else:
-            #TODO: should check that this is actually two and throw an error otherwise
             low_bound=int(line[2])
             up_bound=-1
-            peopleList=line[3:]
+        peopleList = []
         setConstraints[sid] = (PAS.SetConstraint(sid, PAS.SetConstraintType(setType), peopleList, low_bound, up_bound))
+    
+    people = {}
+    for line in peopleFile:
+        line = line.strip()
+        line = line.split(',')
+        #TODO: check that line is correct length, throw exception otherwise
+        uid=line[0]
+        dates = line[1:n+1]
+        dates = [True if c=='1' else False for c in dates]
+        for s in line[n+1:]:
+            setConstraints[s].personList.append(uid)
+        #TODO: should probably throw an exception if not 0 or 1.
+        #TODO: Also throw exception of uid is not unique
+        people[uid] = PAS.Person(uid, dates)
         
     return (n, people, setConstraints)
 
