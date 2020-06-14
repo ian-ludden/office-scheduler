@@ -40,10 +40,16 @@ def parseCSVs(n, peopleFile, setFile):
         peopleFile - a file to read people lines from (not the name of the file, the actual file object)
         setFile - a file to read set constraints from (not the name of the file, the actual file object)
         
-     Returns tuple of form (n, {People objects indexed by uid}, {SetConstraint objects indexed by sid})
+     Returns tuple of form (n, [list of People objects], [list of SetConstraint objects]
     """
     
     #TODO: need to trim extra commas and stuff like that.
+    #TODO: consider people and setConstraints as dictionaries indexed by uid and sid for easier lookup
+    #   alternatively, add person object to set contraint instead of just person's id.
+    #   Can also only store people as a dictionary to facilitate this better.
+    #   On the other hand, lists make for easier time converting from lists to indexed IP variables
+    #   Maybe store as tuple (personIndex, personObject) in people list in SetConstraint or something.
+    #   Or can create a dictionary to map from person name to index in people.
     
     setConstraints = {}
     for line in setFile:
@@ -58,7 +64,7 @@ def parseCSVs(n, peopleFile, setFile):
         else:
             low_bound=int(line[2])
             up_bound=-1
-        peopleList = []
+        peopleList = []    
         setConstraints[sid] = (PAS.SetConstraint(sid, PAS.SetConstraintType(setType), peopleList, low_bound, up_bound))
     
     people = {}
@@ -74,7 +80,7 @@ def parseCSVs(n, peopleFile, setFile):
         #TODO: should probably throw an exception if not 0 or 1.
         #TODO: Also throw exception of uid is not unique
         people[uid] = PAS.Person(uid, dates)
-        
+
     return (n, people, setConstraints)
 
 """

@@ -124,10 +124,6 @@ if __name__ == '__main__':
 
     num_days, people, set_constraints = Parser.parseCSVs(n=args.numdays, peopleFile=args.peopleFile, setFile=args.setFile)
 
-    #TODO: currently converting dictionary to list; should evetually change to actually use the dictionary
-    people=list(people.values())
-    set_constraints=list(set_constraints.values())
-
     lp = build_scheduling_lp(num_days, people, set_constraints)
 
     import pdb; pdb.set_trace()

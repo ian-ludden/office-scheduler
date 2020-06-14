@@ -338,10 +338,6 @@ if __name__ == '__main__':
     num_days, people, set_constraints = Parser.parseCSVs(n=args.numdays, peopleFile=args.peopleFile, setFile=args.setFile)
     time_limit = 30
 
-    #TODO: Stop converting to list and and actually use dictionary
-    people = list(people.values())
-    set_constraints = list(set_constraints.values())
-    
     bnb_solver = SimpleBnbSolver(people, set_constraints, time_limit=time_limit)
     schedule = bnb_solver.solve()
 
